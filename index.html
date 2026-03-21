@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="lo">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%; background: #6b7280;
+    font-family: 'Noto Sans Lao', sans-serif;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+  }
+  #phone-wrap {
+    width: min(100%, 480px);
+    height: 100%;
+    max-height: 900px;
+    display: flex;
+    flex-direction: column;
+    background: #e8e4dc;
+    box-shadow: 0 -5px 40px rgba(0,0,0,0.5);
+    border-radius: 12px 12px 0 0;
+    position: relative;
+    overflow: hidden;
+  }
+  #action-bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; background: #1a3a2a; border-bottom: 2px solid #4caf80;
+  }
+  #action-bar .title { color: #4caf80; font-size: 15px; font-weight: bold; letter-spacing: 1px; }
+  .action-btn { padding: 5px 12px; border-radius: 6px; border: none; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .action-btn.reset { background: #6b7280; color: #fff; }
+
+  #editor {
+    flex: 1; width: 100%; background: #faf7f2;
+    padding: 16px 20px; font-size: 30px; line-height: 1.8;
+    border: none; outline: none; overflow-y: auto;
+    white-space: pre-wrap; color: #1a1208; overflow-wrap: break-word;
+  }
+  .cursor { color: #4caf80; animation: blink 1s step-end infinite; font-weight: 100; }
+  @keyframes blink { from, to { opacity: 0; } 50% { opacity: 1; } }
+
+  #keyboard-wrap {
+    position: relative;
+    width: 100%;
+    flex-shrink: 0;
+    border-top: 1px solid #888;
+    background: #b5b0a8;
+  }
+  #kbd-image { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+  #kbd { position: absolute; top: 0; left: 0; right: 0; bottom: 0; }
+
+  .kbd-btn {
+    position: absolute;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    user-select: none;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Noto Sans Lao', sans-serif;
+    font-weight: bold;
+    padding: 0;
+  }
+  .kbd-btn:active { opacity: 0.5; }
+
+  .kbd-consonant { flex-direction: column; gap: 0; color: #1a1208; line-height: 1; }
+  .kbd-consonant .main-char { font-size: clamp(13px, 5.5vw, 26px); font-weight: 900; line-height: 1; }
+  .kbd-consonant .sub-chars { font-size: clamp(7px, 2.8vw, 13px); color: #666; line-height: 1; letter-spacing: 0.5px; }
+  .kbd-consonant .both-chars { font-size: clamp(11px, 4.5vw, 22px); font-weight: 900; line-height: 1; }
+
+  .kbd-next { font-size: clamp(13px, 5vw, 24px); color: #78350f; font-weight: 900; flex-direction: column; gap: 1px; line-height: 1.1; }
+  .kbd-next.hconj-active { color: #16a34a; }
+
+  .kbd-sign { font-size: clamp(12px, 5vw, 24px); color: #1a5228; font-weight: 700; flex-direction: column; gap: 0; line-height: 1; }
+  .kbd-func, .kbd-space, .kbd-enter, .kbd-123, .kbd-repeat { font-size: 0; }
+
+  .kbd-space-label, .kbd-repeat-label {
+    position: absolute;
+    pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'Noto Sans Lao', sans-serif; font-weight: bold;
+  }
+  .kbd-space-label { font-size: clamp(13px, 3.8vw, 18px); color: #3b3228; }
+  .kbd-repeat-label { font-size: clamp(12px, 4vw, 18px); color: #3b3228; }
+</style>
+</head>
+<body>
+<div id="phone-wrap">
+<div id="action-bar">
+  <span class="title">ລາວ 3×8</span>
+  <button class="action-btn reset" onclick="resetAll()">↺ ລ້າງ</button>
+</div>
+<div id="editor"></div>
+<div id="keyboard-wrap">
+  <img id="kbd-image" src="images/keyboard.png" alt="keyboard" draggable="false" />
+  <div id="kbd"></div>
+</div>
+</div>
+
+<script>
+const consonantRows = {
+  'ຮ': ['ຮ','ຣ'],
+  'ທ': ['ທ','ຫ'],
+  'ບ': ['ບ','ປ'],
+  'ງ': ['ງ','ຈ'],
+  'ພ': ['ພ','ຜ','ຝ','ຟ'],
+  'ວ': ['ວ','ລ'],
+  'ນ': ['ນ','ມ'],
+  'ດ': ['ດ','ຕ'],
+  'ຂ': ['ຂ','ຊ'],
+  'ຄ': ['ຄ','ຍ','ຢ'],
+  'ອ': ['ອ','ສ'],
+  'ກ': ['ກ','ຖ'],
+};
+
+const leftKeys = [
+  ['ຮ','ທ','ບ','ງ'],
+  ['ພ','ວ','ນ','ດ'],
+  ['ຂ','ຄ','ອ','ກ'],
+];
+
+const rightKeys = [
+  [
+    { type:'sign', chars:['ີ','ິ','ຶ'] },
+    { type:'sign', chars:['ັ','ົ','ື'] },
+    { type:'sign', chars:['່','໋'] },
+    { type:'sign', chars:['້','໊'] },
+  ],
+  [
+    { type:'sign', chars:['ເ','ແ'], display:'ເ' },
+    { type:'next' },
+    { type:'sign', chars:['າ','ຳ'] },
+    { type:'sign', chars:['ະ'] },
+  ],
+  [
+    { type:'sign', chars:['ໃ','ໄ','ໂ'] },
+    { type:'sign', chars:['ຸ','ູ'] },
+    { type:'dot' },
+    { type:'bs' },
+  ],
+];
+
+const hConjSet = new Set(['ນ','ມ','ງ','ຍ','ລ','ວ','ຣ']);
+
+let state = {
+  activeRoot: null,
+  activeCharIdx: 0,
+  lastSignKey: null,
+  signTapIdx: 0,
+  hConjMode: false,
+};
+
+const editor = document.getElementById('editor');
+function getText() { return editor.dataset.text || ''; }
+function setText(t) {
+  editor.dataset.text = t;
+  const esc = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  editor.innerHTML = esc + `<span class="cursor">|</span>`;
+}
+function appendText(c) { setText(getText() + c); }
+function replaceLastChar(c) { const t=getText(); if(!t.length)return; setText(t.slice(0,-1)+c); }
+function backspace() { const t=getText(); if(!t.length)return; setText(t.slice(0,-1)); }
+function getRoot(char) {
+  for(const [root,arr] of Object.entries(consonantRows)) if(arr.includes(char)) return root;
+  return null;
+}
+
+function handleConsonant(root) {
+  const arr = consonantRows[root];
+  const char = arr[0];
+  if (state.hConjMode) {
+    appendText(hConjSet.has(char) ? 'ຫ'+char : char);
+    state.hConjMode = false;
+    state.activeRoot = root;
+    state.activeCharIdx = 0;
+    state.lastSignKey = null; state.signTapIdx = 0;
+    render(); return;
+  }
+  appendText(char);
+  state.activeRoot = root; state.activeCharIdx = 0;
+  state.lastSignKey = null; state.signTapIdx = 0; state.hConjMode = false;
+  render();
+}
+
+function handleNext() {
+  if (!state.activeRoot) return;
+  const arr = consonantRows[state.activeRoot];
+  if (state.activeRoot === 'ທ') {
+    if (state.activeCharIdx === 0) { replaceLastChar('ຫ'); state.activeCharIdx = 1; state.hConjMode = false; }
+    else if (state.activeCharIdx === 1) { state.hConjMode = true; state.activeCharIdx = 2; }
+    else { replaceLastChar('ທ'); state.hConjMode = false; state.activeCharIdx = 0; }
+    state.lastSignKey = null; state.signTapIdx = 0;
+    render(); return;
+  }
+  const nextIdx = (state.activeCharIdx + 1) % arr.length;
+  replaceLastChar(arr[nextIdx]);
+  state.activeCharIdx = nextIdx;
+  state.lastSignKey = null; state.signTapIdx = 0;
+  render();
+}
+
+function handleSign(keyId, chars) {
+  if (state.lastSignKey === keyId) {
+    state.signTapIdx = (state.signTapIdx + 1) % chars.length;
+    const t = getText(); setText(t.slice(0,-1) + chars[state.signTapIdx]);
+  } else {
+    state.lastSignKey = keyId; state.signTapIdx = 0;
+    appendText(chars[0]);
+  }
+  state.activeRoot = null; state.activeCharIdx = 0;
+  render();
+}
+
+function handleDot() {
+  appendText('.');
+  state.lastSignKey = null; state.signTapIdx = 0;
+  state.activeRoot = null; state.activeCharIdx = 0;
+  render();
+}
+
+function handleBS() {
+  backspace();
+  state.lastSignKey = null; state.signTapIdx = 0; state.hConjMode = false;
+  const t = getText();
+  const last = t.length ? t[t.length-1] : null;
+  const root = last ? getRoot(last) : null;
+  state.activeRoot = root;
+  state.activeCharIdx = root ? consonantRows[root].indexOf(last) : 0;
+  render();
+}
+
+function handleRepeat() {
+  const chars = ['ໆ','ຯ'];
+  const keyId = 'repeat';
+  if (state.lastSignKey === keyId) {
+    state.signTapIdx = (state.signTapIdx + 1) % chars.length;
+    const t = getText(); setText(t.slice(0,-1) + chars[state.signTapIdx]);
+  } else {
+    state.lastSignKey = keyId; state.signTapIdx = 0;
+    appendText(chars[0]);
+  }
+  state.activeRoot = null; state.activeCharIdx = 0;
+  render();
+}
+
+// 라오 결합 부호 여부 판별
+function isDiacritic(c) {
+  const cp = c.codePointAt(0);
+  return (cp >= 0x0EB4 && cp <= 0x0EB9) || cp === 0x0EB1 || cp === 0x0EBB ||
+         cp === 0x0EBC || (cp >= 0x0EC8 && cp <= 0x0ECD) || cp === 0x0EC6;
+}
+
+// ── 좌표 ──────────────────────────────────────
+// 이미지: 2000x1056
+const KEY_COLS = [1.05, 13.50, 25.90, 38.30, 50.65, 63.15, 75.55, 88.05];
+const KEY_ROWS = [3.03, 28.50, 51.80];
+const KEY_W = 10.80, KEY_H = 20.00;
+const BOT_Y = 76.89, BOT_H = 19.89;
+
+function makeBtn(cls, style, onClick) {
+  const b = document.createElement('button');
+  b.className = 'kbd-btn ' + cls;
+  Object.assign(b.style, style);
+  if (onClick) b.addEventListener('pointerdown', (e) => { e.preventDefault(); onClick(); });
+  return b;
+}
+
+function render() {
+  const kbd = document.getElementById('kbd');
+  kbd.innerHTML = '';
+
+  for (let row = 0; row < 3; row++) {
+    // 좌측 4열: 자음
+    for (let col = 0; col < 4; col++) {
+      const root = leftKeys[row][col];
+      const arr = consonantRows[root];
+      let activeChar = arr[0]; // 항상 대표자음 고정 표시
+
+      const b = makeBtn('kbd-consonant', {
+        left: KEY_COLS[col]+'%', top: KEY_ROWS[row]+'%',
+        width: KEY_W+'%', height: KEY_H+'%', flexDirection:'column'
+      }, () => handleConsonant(root));
+
+      // 모든 자음 키: 대표자음 크게, 서브 작게 (아래층)
+      const main = document.createElement('span');
+      main.className = 'main-char';
+      main.textContent = activeChar;
+      b.appendChild(main);
+      if (arr.length > 1) {
+        const sub = document.createElement('span');
+        sub.className = 'sub-chars';
+        sub.textContent = arr.slice(1).join('');
+        b.appendChild(sub);
+      }
+      kbd.appendChild(b);
+    }
+
+    // 우측 4열
+    for (let col = 0; col < 4; col++) {
+      const rk = rightKeys[row][col];
+      const imgCol = col + 4;
+      const style = { left:KEY_COLS[imgCol]+'%', top:KEY_ROWS[row]+'%', width:KEY_W+'%', height:KEY_H+'%' };
+
+      if (rk.type === 'next') {
+        const b = makeBtn('kbd-next'+(state.hConjMode?' hconj-active':''), style, () => handleNext());
+        b.style.flexDirection = 'column';
+        b.style.flexDirection = 'row';
+        b.style.flexWrap = 'wrap';
+        b.style.justifyContent = 'center';
+        b.style.gap = '1px';
+        if (state.activeRoot) {
+          const arr = consonantRows[state.activeRoot];
+          if (state.activeRoot === 'ທ') {
+            if (state.activeCharIdx === 0) b.textContent = 'ຫ';
+            else if (state.activeCharIdx === 1) b.textContent = 'ຫ+';
+            else b.textContent = 'ທ';
+          } else {
+            arr.slice(1).forEach(c => {
+              const s = document.createElement('span');
+              s.textContent = c; s.style.lineHeight = '1';
+              b.appendChild(s);
+            });
+          }
+        } else {
+          b.textContent = '⇄';
+        }
+        kbd.appendChild(b);
+
+      } else if (rk.type === 'bs') {
+        kbd.appendChild(makeBtn('kbd-func', style, handleBS));
+
+      } else if (rk.type === 'dot') {
+        const b = makeBtn('kbd-sign', style, handleDot);
+        b.textContent = '.';
+        kbd.appendChild(b);
+
+      } else if (rk.type === 'sign') {
+        const b = makeBtn('kbd-sign', style, () => handleSign(`r${row}c${col}`, rk.chars));
+        b.style.flexDirection = 'row';
+        b.style.flexWrap = 'wrap';
+        b.style.justifyContent = 'center';
+        b.style.gap = '2px';
+        // display 속성이 있으면 그것만 표시, 없으면 전체
+        const displayChars = rk.display ? [rk.display] : rk.chars;
+        displayChars.forEach(c => {
+          const s = document.createElement('span');
+          s.style.lineHeight = '1';
+          if (isDiacritic(c)) {
+            // 결합 부호: 점선원(◌) 베이스 위에 얹어서 보이게
+            s.innerHTML = '\u25CC' + c;
+          } else {
+            s.textContent = c;
+          }
+          b.appendChild(s);
+        });
+        kbd.appendChild(b);
+      }
+    }
+  }
+
+  // ── 바텀바 ──────────────────────────────────────
+  kbd.appendChild(makeBtn('kbd-123', {
+    left:'1.0%', top:BOT_Y+'%', width:'21.0%', height:BOT_H+'%'
+  }, null));
+
+  kbd.appendChild(makeBtn('kbd-space', {
+    left:'23.4%', top:BOT_Y+'%', width:'40.7%', height:BOT_H+'%'
+  }, () => {
+    appendText(' ');
+    state.activeRoot=null; state.activeCharIdx=0;
+    state.lastSignKey=null; state.hConjMode=false; render();
+  }));
+  const lbl = document.createElement('div');
+  lbl.className = 'kbd-space-label';
+  lbl.style.cssText = `left:23.4%;top:${BOT_Y}%;width:40.7%;height:${BOT_H}%;`;
+  lbl.textContent = '␣';
+  kbd.appendChild(lbl);
+
+  kbd.appendChild(makeBtn('kbd-repeat', {
+    left:'65.8%', top:BOT_Y+'%', width:'10.8%', height:BOT_H+'%'
+  }, handleRepeat));
+  const rlbl = document.createElement('div');
+  rlbl.className = 'kbd-repeat-label';
+  rlbl.style.cssText = `left:65.8%;top:${BOT_Y}%;width:10.8%;height:${BOT_H}%;`;
+  rlbl.textContent = 'ໆຯ';
+  kbd.appendChild(rlbl);
+
+  kbd.appendChild(makeBtn('kbd-enter', {
+    left:'78.2%', top:BOT_Y+'%', width:'20.6%', height:BOT_H+'%'
+  }, () => { appendText('\n'); render(); }));
+}
+
+function resetAll() {
+  setText('');
+  state = { activeRoot:null, activeCharIdx:0, lastSignKey:null, signTapIdx:0, hConjMode:false };
+  render();
+}
+
+setText('');
+render();
+</script>
+</body>
+</html>
