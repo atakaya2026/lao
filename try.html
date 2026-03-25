@@ -39,16 +39,53 @@
 		margin-top: 24px;  /* 원하는 만큼 내려줌 */
 		margin-left: 15px
 }
+    /* ── 버튼 래퍼 ── */
     .buttons {
       margin-top: 60px;
       display: flex;
       justify-content: center;
       gap: 80px;
     }
+
+    /* 단계 뱃지 + 버튼을 세로로 묶는 컨테이너 */
+    .btn-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    /* Step 뱃지 */
+    .step-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 1.15em;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      padding: 6px 20px;
+      border-radius: 999px;
+      color: #fff;
+    }
+    .step-badge.green { background: #4a9e28; }
+    .step-badge.blue  { background: #2a52a0; }
+
+    .step-badge .step-num {
+      background: rgba(255,255,255,0.3);
+      border-radius: 50%;
+      width: 26px;
+      height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1em;
+      font-weight: 900;
+    }
     .btn {
       display: flex;
       align-items: center;
 	  width: 320px;   /* 원하는 고정값으로 */
+	  height: 90px;
 	  justify-content: center;
       gap: 10px;
       padding: 18px 28px;
@@ -105,16 +142,28 @@
   </div>
   <div class="buttons">
   <!-- 두더지 게임 버튼 -->
-  <button class="btn btn-green" onclick="location.href='mole.html'">
-    <img src="img/icon_mole.png" alt="두더지 게임 아이콘">
-    ຫຼິ້ນເກມຕີຕຸ່ນກ່ອນ.
-  </button>
+    <div class="btn-wrapper">
+      <div class="step-badge green">
+        <span class="step-num">1</span>
+        Step 1
+      </div>
+      <button class="btn btn-green" onclick="location.href='mole.html'">
+        <img src="img/icon_mole.png" alt="두더지 게임 아이콘">
+        ຫຼິ້ນເກມຕີຕຸ່ນກ່ອນ.
+      </button>
+    </div>
 
-  <!-- 테라나마 체험 버튼 -->
-  <button class="btn btn-blue" onclick="location.href='pc_demo_windows.html'">
-    <img src="img/icon_keyboard.png" alt="키보드 아이콘">
-    PC ຮາທາບັງ<br>(ສະເພາະ PC)
-  </button>
+    <!-- 2단계: hatabang 체험 -->
+    <div class="btn-wrapper">
+      <div class="step-badge blue">
+        <span class="step-num">2</span>
+        Step 2
+      </div>
+      <button class="btn btn-blue" onclick="location.href='teranama.html'">
+        <img src="img/icon_keyboard.png" alt="키보드 아이콘">
+        PC ຮາທາບັງ<br>(ສະເພາະ PC)
+      </button>
+    </div>
 </div>
 
 
