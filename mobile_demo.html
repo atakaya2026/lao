@@ -175,6 +175,7 @@ function handleConsonant(root) {
   const arr = consonantRows[root];
   const char = arr[0];
   if (state.hConjMode) {
+    const tc = getText(); if (tc.endsWith('+')) setText(tc.slice(0,-1));
     backspace(); // ຫ 지우기
     if (hConjSet.has(char)) {
       const conjChar = hConjMap[char] || ('ຫ' + char);
@@ -185,7 +186,7 @@ function handleConsonant(root) {
       state.hConjChar = null;
     }
     state.hConjMode = false;
-    state.activeRoot = root;
+    state.activeRoot = null; // 합자 완성 후 activeRoot 리셋
     state.activeCharIdx = 0;
     state.lastSignKey = null; state.signTapIdx = 0;
     render(); return;
@@ -223,8 +224,8 @@ function handleNext() {
   const arr = consonantRows[state.activeRoot];
   if (state.activeRoot === 'ທ') {
     if (state.activeCharIdx === 0) { replaceLastChar('ຫ'); state.activeCharIdx = 1; state.hConjMode = false; }
-    else if (state.activeCharIdx === 1) { state.hConjMode = true; state.activeCharIdx = 2; }
-    else { replaceLastChar('ທ'); state.hConjMode = false; state.activeCharIdx = 0; }
+    else if (state.activeCharIdx === 1) { state.hConjMode = true; state.activeCharIdx = 2; appendText('+'); }
+    else { const t2 = getText(); if (t2.endsWith('+')) setText(t2.slice(0,-1)); replaceLastChar('ທ'); state.hConjMode = false; state.activeCharIdx = 0; }
     state.lastSignKey = null; state.signTapIdx = 0;
     render(); return;
   }
@@ -255,6 +256,7 @@ function handleDot() {
 }
 
 function handleBS() {
+  const tb = getText(); if (state.hConjMode && tb.endsWith('+')) setText(tb.slice(0,-1));
   backspace();
   state.lastSignKey = null; state.signTapIdx = 0; state.hConjMode = false;
   const t = getText();
@@ -344,18 +346,29 @@ function render() {
         b.style.flexWrap = 'wrap';
         b.style.justifyContent = 'center';
         b.style.gap = '1px';
-        if (state.activeRoot) {
+        if (state.hConjChar) {
+          // 합자 완성 → 그 자음 그룹의 다음 차례 표시
+          const conjRoot = getRoot(state.hConjChar);
+          if (conjRoot) {
+            const arr = consonantRows[conjRoot];
+            const nextIdx = (arr.indexOf(state.hConjChar) + 1) % arr.length;
+            b.textContent = arr[nextIdx];
+          } else {
+            b.textContent = '⇄';
+          }
+        } else if (state.hConjMode) {
+          // 합자 대기 중, 자음 미입력
+          b.textContent = '+';
+        } else if (state.activeRoot) {
           const arr = consonantRows[state.activeRoot];
           if (state.activeRoot === 'ທ') {
             if (state.activeCharIdx === 0) b.textContent = 'ຫ';
             else if (state.activeCharIdx === 1) b.textContent = 'ຫ+';
-            else b.textContent = 'ທ';
+            else b.textContent = '+';
           } else {
-            arr.slice(1).forEach(c => {
-              const s = document.createElement('span');
-              s.textContent = c; s.style.lineHeight = '1';
-              b.appendChild(s);
-            });
+            // 현재 activeCharIdx 기준 다음 차례 문자 표시
+            const nextIdx = (state.activeCharIdx + 1) % arr.length;
+            b.textContent = arr[nextIdx];
           }
         } else {
           b.textContent = '⇄';
