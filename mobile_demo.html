@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Lao:wght@400;700&family=Noto+Sans:wght@400;700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     height: 100%; background: #6b7280;
-    font-family: 'Noto Sans Lao', sans-serif;
+    font-family: 'Noto Sans Lao', 'Noto Sans', sans-serif;
     overflow: hidden;
     display: flex;
     justify-content: center;
@@ -41,6 +41,7 @@
     white-space: pre-wrap; color: #1a1208; overflow-wrap: break-word;
   }
   .cursor { color: #4caf80; animation: blink 1s step-end infinite; font-weight: 100; }
+  .caron { font-family: 'Noto Sans', Arial, sans-serif; font-size: 0.75em; color: #999; font-weight: 300; }
   @keyframes blink { from, to { opacity: 0; } 50% { opacity: 1; } }
 
   #keyboard-wrap {
@@ -61,8 +62,7 @@
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Noto Sans Lao', sans-serif;
-    font-weight: bold;
+    font-family: 'Noto Sans Lao', 'Noto Sans', sans-serif;
     padding: 0;
   }
   .kbd-btn:active { opacity: 0.5; }
@@ -82,7 +82,7 @@
     position: absolute;
     pointer-events: none;
     display: flex; align-items: center; justify-content: center;
-    font-family: 'Noto Sans Lao', sans-serif; font-weight: bold;
+    font-family: 'Noto Sans Lao', 'Noto Sans', sans-serif; font-weight: bold;
   }
   .kbd-space-label { font-size: clamp(13px, 3.8vw, 18px); color: #3b3228; }
   .kbd-repeat-label { font-size: clamp(12px, 4vw, 18px); color: #3b3228; }
@@ -154,6 +154,7 @@ let state = {
   signTapIdx: 0,
   hConjMode: false,
   hConjChar: null,  // 현재 합자된 자음 (ນ, ມ, ລ 등)
+  spaceMode: 0,     // 0=초기, 1=1탭(ZWSP+캐런 삽입됨), 2+=공란모드
 };
 
 const editor = document.getElementById('editor');
@@ -161,7 +162,8 @@ function getText() { return editor.dataset.text || ''; }
 function setText(t) {
   editor.dataset.text = t;
   const esc = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
-  editor.innerHTML = esc + `<span class="cursor">|</span>`;
+  const withCaron = esc.replace(/\u02C7/g, '<span class="caron">ˇ</span>');
+  editor.innerHTML = withCaron + `<span class="cursor">|</span>`;
 }
 function appendText(c) { setText(getText() + c); }
 function replaceLastChar(c) { const t=getText(); if(!t.length)return; setText(t.slice(0,-1)+c); }
@@ -171,7 +173,17 @@ function getRoot(char) {
   return null;
 }
 
+// 캐런(ˇ) 자동 삭제 + spaceMode 리셋
+function clearCaron() {
+  if (state.spaceMode === 1) {
+    const t = getText();
+    if (t.endsWith('\u02C7')) setText(t.slice(0, -1));
+  }
+  state.spaceMode = 0; // 어떤 키든 입력되면 항상 리셋
+}
+
 function handleConsonant(root) {
+  clearCaron();
   const arr = consonantRows[root];
   const char = arr[0];
   if (state.hConjMode) {
@@ -199,6 +211,7 @@ function handleConsonant(root) {
 }
 
 function handleNext() {
+  clearCaron();
   // 합자 상태에서 변환키: 합자 자음을 그룹 내 다음 자음으로 교체
   if (state.hConjChar) {
     const conjRoot = getRoot(state.hConjChar);
@@ -237,6 +250,7 @@ function handleNext() {
 }
 
 function handleSign(keyId, chars) {
+  clearCaron();
   if (state.lastSignKey === keyId) {
     state.signTapIdx = (state.signTapIdx + 1) % chars.length;
     const t = getText(); setText(t.slice(0,-1) + chars[state.signTapIdx]);
@@ -249,6 +263,7 @@ function handleSign(keyId, chars) {
 }
 
 function handleDot() {
+  clearCaron();
   appendText('.');
   state.lastSignKey = null; state.signTapIdx = 0;
   state.activeRoot = null; state.activeCharIdx = 0;
@@ -256,6 +271,19 @@ function handleDot() {
 }
 
 function handleBS() {
+  // BS: 캐런 있으면 캐런만 지우고 spaceMode 리셋, 없으면 일반 BS
+  if (state.spaceMode === 1) {
+    const tc = getText();
+    if (tc.endsWith('\u02C7')) setText(tc.slice(0, -1)); // 캐런 제거
+    state.spaceMode = 0;
+    state.lastSignKey = null; state.signTapIdx = 0; state.hConjMode = false;
+    const t2 = getText();
+    const last2 = t2.length ? t2[t2.length-1] : null;
+    const root2 = last2 ? getRoot(last2) : null;
+    state.activeRoot = root2;
+    state.activeCharIdx = root2 ? consonantRows[root2].indexOf(last2) : 0;
+    render(); return;
+  }
   const tb = getText(); if (state.hConjMode && tb.endsWith('+')) setText(tb.slice(0,-1));
   backspace();
   state.lastSignKey = null; state.signTapIdx = 0; state.hConjMode = false;
@@ -268,6 +296,7 @@ function handleBS() {
 }
 
 function handleRepeat() {
+  clearCaron();
   const chars = ['ໆ','ຯ'];
   const keyId = 'repeat';
   if (state.lastSignKey === keyId) {
@@ -415,14 +444,24 @@ function render() {
   kbd.appendChild(makeBtn('kbd-space', {
     left:'23.4%', top:BOT_Y+'%', width:'40.7%', height:BOT_H+'%'
   }, () => {
-    appendText(' ');
+    if (state.spaceMode === 0) {
+      // 1탭: ZWSP + 캐런 삽입
+      appendText('\u200B\u02C7');
+      state.spaceMode = 1;
+    } else {
+      // 2탭 이후: 캐런 제거(있으면) 후 공백 추가
+      const tc = getText();
+      if (tc.endsWith('\u02C7')) setText(tc.slice(0, -1));
+      appendText(' ');
+      state.spaceMode = 2;
+    }
     state.activeRoot=null; state.activeCharIdx=0;
     state.lastSignKey=null; state.hConjMode=false; render();
   }));
   const lbl = document.createElement('div');
   lbl.className = 'kbd-space-label';
   lbl.style.cssText = `left:23.4%;top:${BOT_Y}%;width:40.7%;height:${BOT_H}%;`;
-  lbl.textContent = '␣';
+  lbl.textContent = state.spaceMode >= 1 ? 'ຍະຫວ່າງ' : 'ແຍກຄໍາ';
   kbd.appendChild(lbl);
 
   kbd.appendChild(makeBtn('kbd-repeat', {
@@ -436,12 +475,12 @@ function render() {
 
   kbd.appendChild(makeBtn('kbd-enter', {
     left:'78.2%', top:BOT_Y+'%', width:'20.6%', height:BOT_H+'%'
-  }, () => { appendText('\n'); render(); }));
+  }, () => { clearCaron(); state.spaceMode=0; appendText('\n'); render(); }));
 }
 
 function resetAll() {
   setText('');
-  state = { activeRoot:null, activeCharIdx:0, lastSignKey:null, signTapIdx:0, hConjMode:false, hConjChar:null };
+  state = { activeRoot:null, activeCharIdx:0, lastSignKey:null, signTapIdx:0, hConjMode:false, hConjChar:null, spaceMode:0 };
   render();
 }
 
