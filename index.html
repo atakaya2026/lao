@@ -40,8 +40,10 @@
 </nav>
 
 <section class="w-full relative">
-    <img src="images/hero.png" alt="Sabayka Hero" class="w-full object-cover">
-
+    <picture>
+        <source media="(max-width: 767px)" srcset="images/hero_mobile.png">
+        <img src="images/hero.png" alt="Hatabang Hero" class="w-full object-cover">
+    </picture>
 </section>
 
 <section id="intro" class="py-20 bg-white text-center px-6">
@@ -114,23 +116,70 @@
 <section id="demo" class="py-24 text-center">
     <h2 class="text-3xl font-bold mb-16">ທົດລອງໃຊ້ງານ ຮາທາບັງ ດ້ວຍຕົວທ່ານເອງ</h2>
     <div class="grid md:grid-cols-2 gap-10 max-w-4xl mx-auto px-6">
-        <div class="p-10 rounded-3xl bg-white border border-gray-100 shadow-xl flex flex-col items-center">
+
+        <!-- Mobile Card -->
+        <div class="p-10 rounded-3xl bg-white border border-gray-100 shadow-xl flex flex-col items-center relative overflow-hidden">
             <h4 class="text-xl font-bold mb-6 text-gray-800">Mobile ຮາທາບັງ</h4>
             <div class="h-32 flex items-center mb-8">
-                <img src="images/mobile.png" alt="မိုဘိုင်း စမ်းသပ်ခြင်း" class="max-h-full w-auto object-contain grayscale hover:grayscale-0 transition duration-500">
+                <img src="images/mobile.png" alt="Mobile demo" class="max-h-full w-auto object-contain grayscale hover:grayscale-0 transition duration-500">
             </div>
             <a href="mobile_demo.html" class="inline-block w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-blue-600 transition text-center">ທົດລອງໃຊ້ງານ</a>
+
+            <!-- PC에서 볼 때: QR코드 오버레이 -->
+            <div id="mobile-overlay"
+                 class="absolute inset-0 rounded-3xl flex-col items-center justify-center gap-4 px-6"
+                 style="display:none; background:rgba(255,255,255,0.96); backdrop-filter:blur(4px);">
+                <h4 class="text-xl font-bold text-gray-800">Mobile ຮາທາບັງ</h4>
+                <div id="qr-container" class="bg-white p-3 rounded-2xl shadow-md border border-gray-100"></div>
+                <p class="text-sm text-gray-500 text-center">📱 ສະແກນ QR ດ້ວຍໂທລະສັບ<br>ເພື່ອທົດລອງໃຊ້ງານ</p>
+            </div>
         </div>
-        
-        <div class="p-10 rounded-3xl bg-white border border-gray-100 shadow-xl flex flex-col items-center">
+
+        <!-- PC Card -->
+        <div class="p-10 rounded-3xl bg-white border border-gray-100 shadow-xl flex flex-col items-center relative overflow-hidden">
             <h4 class="text-xl font-bold mb-6 text-gray-800">PC ຮາທາບັງ</h4>
             <div class="h-32 flex items-center mb-8">
-                <img src="images/pc.png" alt="PC တပ်ဆင်ခြင်း" class="max-h-full w-auto object-contain grayscale hover:grayscale-0 transition duration-500">
+                <img src="images/pc.png" alt="PC demo" class="max-h-full w-auto object-contain grayscale hover:grayscale-0 transition duration-500">
             </div>
             <a href="try.html" class="inline-block w-full py-3 bg-gray-900 text-white rounded-xl font-bold hover:bg-blue-600 transition text-center">ກຳລັງຕຽມການ</a>
+
+            <!-- 모바일에서 볼 때: PC 안내 오버레이 -->
+            <div id="pc-overlay"
+                 class="absolute inset-0 rounded-3xl flex-col items-center justify-center gap-4 px-6"
+                 style="display:none; background:rgba(255,255,255,0.96); backdrop-filter:blur(4px);">
+                <h4 class="text-xl font-bold text-gray-800">PC ຮາທາບັງ</h4>
+                <span class="text-5xl">🖥️</span>
+                <p class="text-sm text-gray-500 text-center">ຟັງຊັນນີ້ຕ້ອງໃຊ້ຄີບອດ PC<br>ກະລຸນາເຂົ້າໃຊ້ຜ່ານຄອມພິວເຕີ</p>
+            </div>
         </div>
+
     </div>
 </section>
+
+<!-- QR 라이브러리 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function() {
+    var isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.innerWidth < 768;
+    var mobileOverlay = document.getElementById('mobile-overlay');
+    var pcOverlay = document.getElementById('pc-overlay');
+    var qrContainer = document.getElementById('qr-container');
+
+    if (!isMobile) {
+        mobileOverlay.style.display = 'flex';
+        new QRCode(qrContainer, {
+            text: 'https://hatabang.com/mobile_demo.html',
+            width: 160,
+            height: 160,
+            colorDark: '#111827',
+            colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    } else {
+        pcOverlay.style.display = 'flex';
+    }
+})();
+</script>
 
 
     <footer class="py-12 border-t border-gray-100 text-center text-gray-400 text-sm">
