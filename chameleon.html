@@ -548,13 +548,6 @@ kbdWrap.addEventListener('pointercancel', () => {
 setText('');
 render();
 
-// ── 페이지 로드 후 1초 뒤 자동으로 키보드 오픈 ──
-setTimeout(() => {
-  // 블러 트랜지션을 약간 느리게 설정해서 자연스럽게
-  adImg.style.transition = 'filter 0.55s ease, transform 0.55s ease';
-  openKeyboard();
-  setTimeout(() => { adImg.style.transition = ''; }, 600);
-}, 1000);
 </script>
 </body>
 </html>
