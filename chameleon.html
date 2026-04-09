@@ -73,11 +73,13 @@
     z-index: 2;
     opacity: 0;
     pointer-events: none;
-    transition: opacity 0.35s ease;
+    transform: translateX(100%);
+    transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.25,0.46,0.45,0.94);
   }
   #kbd.visible {
     opacity: 1;
     pointer-events: auto;
+    transform: translateX(0%);
   }
 
   /* 레이어 3: 사진 상태일 때 터치 받는 오버레이 */
@@ -410,10 +412,21 @@ let kbdOpen = false;
 
 function openKeyboard() {
   kbdOpen = true;
-  adBg.classList.add('blurred');
-  kbdDiv.classList.add('visible');
-  photoTap.classList.add('hidden');
-  swipeHint.classList.add('show');
+  // transform 초기화 후 visible 적용해야 슬라이드 인 애니메이션이 항상 재생됨
+  kbdDiv.style.transition = 'none';
+  kbdDiv.style.transform = 'translateX(100%)';
+  kbdDiv.style.opacity = '0';
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      kbdDiv.style.transition = '';
+      kbdDiv.style.transform = '';
+      kbdDiv.style.opacity = '';
+      adBg.classList.add('blurred');
+      kbdDiv.classList.add('visible');
+      photoTap.classList.add('hidden');
+      swipeHint.classList.add('show');
+    });
+  });
 }
 function closeKeyboard() {
   kbdOpen = false;
@@ -534,6 +547,14 @@ kbdWrap.addEventListener('pointercancel', () => {
 
 setText('');
 render();
+
+// ── 페이지 로드 후 1초 뒤 자동으로 키보드 오픈 ──
+setTimeout(() => {
+  // 블러 트랜지션을 약간 느리게 설정해서 자연스럽게
+  adImg.style.transition = 'filter 0.55s ease, transform 0.55s ease';
+  openKeyboard();
+  setTimeout(() => { adImg.style.transition = ''; }, 600);
+}, 1000);
 </script>
 </body>
 </html>
