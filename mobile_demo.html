@@ -67,25 +67,25 @@
   }
   .kbd-btn:active { opacity: 0.5; }
 
-  .kbd-consonant { flex-direction: column; gap: 0; color: #1a1208; line-height: 1; }
-  .kbd-consonant .main-char { font-size: clamp(13px, 5.5vw, 26px); font-weight: 900; line-height: 1; }
-  .kbd-consonant .sub-chars { font-size: clamp(7px, 2.8vw, 13px); color: #666; line-height: 1; letter-spacing: 0.5px; }
-  .kbd-consonant .both-chars { font-size: clamp(11px, 4.5vw, 22px); font-weight: 900; line-height: 1; }
-
-  .kbd-next { font-size: clamp(13px, 5vw, 24px); color: #78350f; font-weight: 900; flex-direction: column; gap: 1px; line-height: 1.1; }
+  /* 변환키: 후보 여러 개를 wrap해서 표시 */
+  .kbd-next {
+    color: #78350f; font-weight: 900; flex-direction: row;
+    flex-wrap: wrap; justify-content: center; align-items: center;
+    gap: 2px; line-height: 1.1;
+  }
   .kbd-next.hconj-active { color: #16a34a; }
+  .kbd-next .next-item { font-size: clamp(11px, 4.5vw, 22px); line-height: 1; }
 
-  .kbd-sign { font-size: clamp(12px, 5vw, 24px); color: #1a5228; font-weight: 700; flex-direction: column; gap: 0; line-height: 1; }
-  .kbd-func, .kbd-space, .kbd-enter, .kbd-123, .kbd-repeat { font-size: 0; }
+  .kbd-func, .kbd-space, .kbd-enter, .kbd-123 { font-size: 0; }
 
-  .kbd-space-label, .kbd-repeat-label {
+  .kbd-space-label {
     position: absolute;
     pointer-events: none;
     display: flex; align-items: center; justify-content: center;
     font-family: 'Noto Sans Lao', sans-serif; font-weight: bold;
+    font-size: clamp(13px, 3.8vw, 18px); color: #3b3228;
   }
-  .kbd-space-label { font-size: clamp(13px, 3.8vw, 18px); color: #3b3228; }
-  .kbd-repeat-label { font-size: clamp(12px, 4vw, 18px); color: #3b3228; }
+
 </style>
 </head>
 <body>
@@ -139,7 +139,7 @@ const rightKeys = [
   [
     { type:'sign', chars:['ໃ','ໄ','ໂ'] },
     { type:'sign', chars:['ຸ','ູ'] },
-    { type:'dot' },
+    { type:'repeat' },   // 3행 7열: ໆ / ຯ (마침표 대신)
     { type:'bs' },
   ],
 ];
@@ -147,14 +147,62 @@ const rightKeys = [
 const hConjSet = new Set(['ນ','ມ','ງ','ຍ','ລ','ວ','ຣ']);
 const hConjMap = { 'ນ': 'ໜ', 'ມ': 'ໝ', 'ລ': 'ຫຼ' };
 
+// ── 숫자 키보드 데이터 (Android NumericKeyboardData 동기화) ──────────────
+const numericRows = [
+  [
+    { type:'num-dismiss' },
+    { type:'num-cycle', chars:['~','`'] },
+    { type:'num-single', char:'@' },
+    { type:'num-cycle', chars:['#','$'] },
+    { type:'num-cycle', chars:['%','/'] },
+    { type:'num-single', char:'7' },
+    { type:'num-single', char:'8' },
+    { type:'num-single', char:'9' },
+  ],
+  [
+    { type:'num-cycle', chars:['^','&'] },
+    { type:'num-single', char:'*' },
+    { type:'num-cycle', chars:['(', ')'] },
+    { type:'num-cycle', chars:['<','>'] },
+    { type:'num-cycle', chars:['-','_'] },
+    { type:'num-single', char:'4' },
+    { type:'num-single', char:'5' },
+    { type:'num-single', char:'6' },
+  ],
+  [
+    { type:'num-cycle', chars:['[',']'] },
+    { type:'num-cycle', chars:['{','}'] },
+    { type:'num-cycle', chars:['|','\\'] },
+    { type:'num-cycle', chars:[':',';'] },
+    { type:'num-cycle', chars:["'",'"'] },
+    { type:'num-single', char:'1' },
+    { type:'num-single', char:'2' },
+    { type:'num-single', char:'3' },
+  ],
+  [
+    { type:'num-cursor-right' },
+    { type:'num-single', char:',' },
+    { type:'num-single', char:'.' },
+    { type:'num-single', char:'!' },
+    { type:'num-single', char:'?' },
+    { type:'num-cycle', chars:['+','='] },
+    { type:'num-single', char:'0' },
+    { type:'num-bs' },
+  ],
+];
+
 let state = {
   activeRoot: null,
   activeCharIdx: 0,
   lastSignKey: null,
   signTapIdx: 0,
   hConjMode: false,
-  hConjChar: null,  // 현재 합자된 자음 (ນ, ມ, ລ 등)
+  hConjChar: null,
 };
+
+let numericMode = false;
+let numLastKey = null;
+let numTapIdx = 0;
 
 const editor = document.getElementById('editor');
 function getText() { return editor.dataset.text || ''; }
@@ -171,6 +219,25 @@ function getRoot(char) {
   return null;
 }
 
+// 변환키에 표시할 후보 목록 (Android nextKeyAllLabels 동기화)
+function getNextKeyLabels() {
+  if (state.hConjChar) {
+    const root = getRoot(state.hConjChar);
+    if (!root) return ['⇄'];
+    const arr = consonantRows[root];
+    return [arr[(arr.indexOf(state.hConjChar) + 1) % arr.length]];
+  }
+  if (state.hConjMode) return ['+'];
+  if (state.activeRoot) {
+    const arr = consonantRows[state.activeRoot];
+    if (state.activeRoot === 'ທ') {
+      return [state.activeCharIdx === 0 ? 'ຫ' : state.activeCharIdx === 1 ? 'ຫ+' : '+'];
+    }
+    return arr.slice(1); // 비기본 후보 전체
+  }
+  return ['⇄'];
+}
+
 function handleConsonant(root) {
   const arr = consonantRows[root];
   const char = arr[0];
@@ -180,13 +247,13 @@ function handleConsonant(root) {
     if (hConjSet.has(char)) {
       const conjChar = hConjMap[char] || ('ຫ' + char);
       appendText(conjChar);
-      state.hConjChar = char; // 합자된 자음 기억
+      state.hConjChar = char;
     } else {
       appendText(char);
       state.hConjChar = null;
     }
     state.hConjMode = false;
-    state.activeRoot = null; // 합자 완성 후 activeRoot 리셋
+    state.activeRoot = null;
     state.activeCharIdx = 0;
     state.lastSignKey = null; state.signTapIdx = 0;
     render(); return;
@@ -199,7 +266,6 @@ function handleConsonant(root) {
 }
 
 function handleNext() {
-  // 합자 상태에서 변환키: 합자 자음을 그룹 내 다음 자음으로 교체
   if (state.hConjChar) {
     const conjRoot = getRoot(state.hConjChar);
     if (conjRoot) {
@@ -207,11 +273,9 @@ function handleNext() {
       const curIdx = arr.indexOf(state.hConjChar);
       const nextIdx = (curIdx + 1) % arr.length;
       const nextChar = arr[nextIdx];
-      // 기존 합자 지우기 (합자가 1자 또는 2자일 수 있음)
       const currentConj = hConjMap[state.hConjChar] || ('ຫ' + state.hConjChar);
       const t = getText();
       setText(t.slice(0, -currentConj.length));
-      // 새 합자 만들기
       const newConj = hConjMap[nextChar] || ('ຫ' + nextChar);
       appendText(newConj);
       state.hConjChar = nextChar;
@@ -248,9 +312,16 @@ function handleSign(keyId, chars) {
   render();
 }
 
-function handleDot() {
-  appendText('.');
-  state.lastSignKey = null; state.signTapIdx = 0;
+function handleRepeat() {
+  const chars = ['ໆ','ຯ'];
+  const keyId = 'repeat';
+  if (state.lastSignKey === keyId) {
+    state.signTapIdx = (state.signTapIdx + 1) % chars.length;
+    const t = getText(); setText(t.slice(0,-1) + chars[state.signTapIdx]);
+  } else {
+    state.lastSignKey = keyId; state.signTapIdx = 0;
+    appendText(chars[0]);
+  }
   state.activeRoot = null; state.activeCharIdx = 0;
   render();
 }
@@ -267,29 +338,49 @@ function handleBS() {
   render();
 }
 
-function handleRepeat() {
-  const chars = ['ໆ','ຯ'];
-  const keyId = 'repeat';
-  if (state.lastSignKey === keyId) {
-    state.signTapIdx = (state.signTapIdx + 1) % chars.length;
-    const t = getText(); setText(t.slice(0,-1) + chars[state.signTapIdx]);
+// ── 숫자 키보드 핸들러 ────────────────────────────────────────────────────
+function handleNumSingle(char) {
+  numLastKey = null; numTapIdx = 0;
+  appendText(char);
+}
+
+function handleNumCycle(keyId, chars) {
+  if (numLastKey === keyId) {
+    numTapIdx = (numTapIdx + 1) % chars.length;
+    backspace();
+    appendText(chars[numTapIdx]);
   } else {
-    state.lastSignKey = keyId; state.signTapIdx = 0;
+    numLastKey = keyId; numTapIdx = 0;
     appendText(chars[0]);
   }
-  state.activeRoot = null; state.activeCharIdx = 0;
+}
+
+function handleNumBS() {
+  numLastKey = null; numTapIdx = 0;
+  backspace();
+}
+
+function handleNumCursorRight() {
+  // 현재 입력 확정 (멀티탭 상태 리셋)
+  numLastKey = null; numTapIdx = 0;
+}
+
+function handleNumDismiss() {
+  numericMode = false;
+  numLastKey = null; numTapIdx = 0;
+  document.getElementById('kbd-image').src = 'images/keyboard.png';
   render();
 }
 
-// 라오 결합 부호 여부 판별
+// 라오 부호 결합 여부 판별
 function isDiacritic(c) {
   const cp = c.codePointAt(0);
   return (cp >= 0x0EB4 && cp <= 0x0EB9) || cp === 0x0EB1 || cp === 0x0EBB ||
          cp === 0x0EBC || (cp >= 0x0EC8 && cp <= 0x0ECD) || cp === 0x0EC6;
 }
 
-// ── 좌표 ──────────────────────────────────────
-// 이미지: 2000x1056
+// ── 좌표 ──────────────────────────────────────────────────────────────────
+// 이미지: 2000×1056
 const KEY_COLS = [1.05, 13.50, 25.90, 38.30, 50.65, 63.15, 75.55, 88.05];
 const KEY_ROWS = [3.03, 28.50, 51.80];
 const KEY_W = 10.80, KEY_H = 20.00;
@@ -304,33 +395,24 @@ function makeBtn(cls, style, onClick) {
 }
 
 function render() {
+  if (numericMode) { renderNumeric(); return; }
+  renderLao();
+}
+
+function renderLao() {
   const kbd = document.getElementById('kbd');
   kbd.innerHTML = '';
 
   for (let row = 0; row < 3; row++) {
-    // 좌측 4열: 자음
+    // 좌측 4열: 자음 (항상 대표자음 고정 표시)
     for (let col = 0; col < 4; col++) {
       const root = leftKeys[row][col];
       const arr = consonantRows[root];
-      let activeChar = arr[0]; // 항상 대표자음 고정 표시
 
-      const b = makeBtn('kbd-consonant', {
+      kbd.appendChild(makeBtn('kbd-func', {
         left: KEY_COLS[col]+'%', top: KEY_ROWS[row]+'%',
-        width: KEY_W+'%', height: KEY_H+'%', flexDirection:'column'
-      }, () => handleConsonant(root));
-
-      // 모든 자음 키: 대표자음 크게, 서브 작게 (아래층)
-      const main = document.createElement('span');
-      main.className = 'main-char';
-      main.textContent = activeChar;
-      b.appendChild(main);
-      if (arr.length > 1) {
-        const sub = document.createElement('span');
-        sub.className = 'sub-chars';
-        sub.textContent = arr.slice(1).join('');
-        b.appendChild(sub);
-      }
-      kbd.appendChild(b);
+        width: KEY_W+'%', height: KEY_H+'%'
+      }, () => handleConsonant(root)));
     }
 
     // 우측 4열
@@ -340,80 +422,44 @@ function render() {
       const style = { left:KEY_COLS[imgCol]+'%', top:KEY_ROWS[row]+'%', width:KEY_W+'%', height:KEY_H+'%' };
 
       if (rk.type === 'next') {
-        const b = makeBtn('kbd-next'+(state.hConjMode?' hconj-active':''), style, () => handleNext());
-        b.style.flexDirection = 'column';
-        b.style.flexDirection = 'row';
-        b.style.flexWrap = 'wrap';
-        b.style.justifyContent = 'center';
-        b.style.gap = '1px';
-        if (state.hConjChar) {
-          // 합자 완성 → 그 자음 그룹의 다음 차례 표시
-          const conjRoot = getRoot(state.hConjChar);
-          if (conjRoot) {
-            const arr = consonantRows[conjRoot];
-            const nextIdx = (arr.indexOf(state.hConjChar) + 1) % arr.length;
-            b.textContent = arr[nextIdx];
-          } else {
-            b.textContent = '⇄';
-          }
-        } else if (state.hConjMode) {
-          // 합자 대기 중, 자음 미입력
-          b.textContent = '+';
-        } else if (state.activeRoot) {
-          const arr = consonantRows[state.activeRoot];
-          if (state.activeRoot === 'ທ') {
-            if (state.activeCharIdx === 0) b.textContent = 'ຫ';
-            else if (state.activeCharIdx === 1) b.textContent = 'ຫ+';
-            else b.textContent = '+';
-          } else {
-            // 현재 activeCharIdx 기준 다음 차례 문자 표시
-            const nextIdx = (state.activeCharIdx + 1) % arr.length;
-            b.textContent = arr[nextIdx];
-          }
-        } else {
-          b.textContent = '⇄';
-        }
+        // 변환키: 후보 전체 표시
+        const labels = getNextKeyLabels();
+        const isHConj = state.hConjMode || !!state.hConjChar;
+        const b = makeBtn('kbd-next'+(isHConj?' hconj-active':''), style, () => handleNext());
+        labels.forEach(label => {
+          const sp = document.createElement('span');
+          sp.className = 'next-item';
+          sp.textContent = label;
+          b.appendChild(sp);
+        });
         kbd.appendChild(b);
 
       } else if (rk.type === 'bs') {
         kbd.appendChild(makeBtn('kbd-func', style, handleBS));
 
-      } else if (rk.type === 'dot') {
-        const b = makeBtn('kbd-sign', style, handleDot);
-        b.textContent = '.';
-        kbd.appendChild(b);
+      } else if (rk.type === 'repeat') {
+        kbd.appendChild(makeBtn('kbd-func', style, handleRepeat));
 
       } else if (rk.type === 'sign') {
-        const b = makeBtn('kbd-sign', style, () => handleSign(`r${row}c${col}`, rk.chars));
-        b.style.flexDirection = 'row';
-        b.style.flexWrap = 'wrap';
-        b.style.justifyContent = 'center';
-        b.style.gap = '2px';
-        // display 속성이 있으면 그것만 표시, 없으면 전체
-        const displayChars = rk.display ? [rk.display] : rk.chars;
-        displayChars.forEach(c => {
-          const s = document.createElement('span');
-          s.style.lineHeight = '1';
-          if (isDiacritic(c)) {
-            // 결합 부호: 점선원(◌) 베이스 위에 얹어서 보이게
-            s.innerHTML = '\u25CC' + c;
-          } else {
-            s.textContent = c;
-          }
-          b.appendChild(s);
-        });
-        kbd.appendChild(b);
+        kbd.appendChild(makeBtn('kbd-func', style, () => handleSign(`r${row}c${col}`, rk.chars)));
       }
     }
   }
 
-  // ── 바텀바 ──────────────────────────────────────
+  // ── 바텀바: 123(2칸) | 스페이스(4칸) | 엔터(2칸) ────────────────────────
+  // 123
   kbd.appendChild(makeBtn('kbd-123', {
-    left:'1.0%', top:BOT_Y+'%', width:'21.0%', height:BOT_H+'%'
-  }, null));
+    left:'1.05%', top:BOT_Y+'%', width:'23.25%', height:BOT_H+'%'
+  }, () => {
+    numericMode = true;
+    numLastKey = null; numTapIdx = 0;
+    document.getElementById('kbd-image').src = 'images/bg_numeric_keyboard.png';
+    render();
+  }));
 
+  // 스페이스
   kbd.appendChild(makeBtn('kbd-space', {
-    left:'23.4%', top:BOT_Y+'%', width:'40.7%', height:BOT_H+'%'
+    left:'25.50%', top:BOT_Y+'%', width:'48.90%', height:BOT_H+'%'
   }, () => {
     appendText(' ');
     state.activeRoot=null; state.activeCharIdx=0;
@@ -421,27 +467,51 @@ function render() {
   }));
   const lbl = document.createElement('div');
   lbl.className = 'kbd-space-label';
-  lbl.style.cssText = `left:23.4%;top:${BOT_Y}%;width:40.7%;height:${BOT_H}%;`;
+  lbl.style.cssText = `left:25.50%;top:${BOT_Y}%;width:48.90%;height:${BOT_H}%;`;
   lbl.textContent = '␣';
   kbd.appendChild(lbl);
 
-  kbd.appendChild(makeBtn('kbd-repeat', {
-    left:'65.8%', top:BOT_Y+'%', width:'10.8%', height:BOT_H+'%'
-  }, handleRepeat));
-  const rlbl = document.createElement('div');
-  rlbl.className = 'kbd-repeat-label';
-  rlbl.style.cssText = `left:65.8%;top:${BOT_Y}%;width:10.8%;height:${BOT_H}%;`;
-  rlbl.textContent = 'ໆຯ';
-  kbd.appendChild(rlbl);
-
+  // 엔터
   kbd.appendChild(makeBtn('kbd-enter', {
-    left:'78.2%', top:BOT_Y+'%', width:'20.6%', height:BOT_H+'%'
+    left:'75.50%', top:BOT_Y+'%', width:'23.35%', height:BOT_H+'%'
   }, () => { appendText('\n'); render(); }));
+}
+
+function renderNumeric() {
+  const kbd = document.getElementById('kbd');
+  kbd.innerHTML = '';
+
+  const handlers = {
+    'num-dismiss':      () => handleNumDismiss(),
+    'num-single':       (k) => () => handleNumSingle(k.char),
+    'num-cycle':        (k, id) => () => handleNumCycle(id, k.chars),
+    'num-bs':           () => handleNumBS(),
+    'num-cursor-right': () => handleNumCursorRight(),
+  };
+
+  for (let r = 0; r < 4; r++) {
+    const isBot = (r === 3);
+    const rowTop = isBot ? BOT_Y : KEY_ROWS[r];
+    const rowH   = isBot ? BOT_H : KEY_H;
+
+    for (let c = 0; c < 8; c++) {
+      const key = numericRows[r][c];
+      const keyId = `n${r}c${c}`;
+      const style = { left:KEY_COLS[c]+'%', top:rowTop+'%', width:KEY_W+'%', height:rowH+'%' };
+      const action = (key.type === 'num-single') ? handlers['num-single'](key)
+                   : (key.type === 'num-cycle')  ? handlers['num-cycle'](key, keyId)
+                   : handlers[key.type];
+      kbd.appendChild(makeBtn('kbd-func', style, action));
+    }
+  }
 }
 
 function resetAll() {
   setText('');
   state = { activeRoot:null, activeCharIdx:0, lastSignKey:null, signTapIdx:0, hConjMode:false, hConjChar:null };
+  numericMode = false;
+  numLastKey = null; numTapIdx = 0;
+  document.getElementById('kbd-image').src = 'images/keyboard.png';
   render();
 }
 
