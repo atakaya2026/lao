@@ -150,21 +150,21 @@ const hConjMap = { 'ນ': 'ໜ', 'ມ': 'ໝ', 'ລ': 'ຫຼ' };
 // ── 숫자 키보드 데이터 (Android NumericKeyboardData 동기화) ──────────────
 const numericRows = [
   [
-    { type:'num-dismiss' },
-    { type:'num-cycle', chars:['~','`'] },
-    { type:'num-single', char:'@' },
-    { type:'num-cycle', chars:['#','$'] },
-    { type:'num-cycle', chars:['%','/'] },
+    { type:'num-cursor-right' },               // 1행 1열: →
+    { type:'num-cycle', chars:['~','`'] },     // 1행 2열: ~ `
+    { type:'num-cycle', chars:['@','*'] },     // 1행 3열: @ *
+    { type:'num-cycle', chars:['#','$'] },     // 1행 4열: # $
+    { type:'num-cycle', chars:['%','/'] },     // 1행 5열: % /
     { type:'num-single', char:'7' },
     { type:'num-single', char:'8' },
     { type:'num-single', char:'9' },
   ],
   [
-    { type:'num-cycle', chars:['^','&'] },
-    { type:'num-single', char:'*' },
-    { type:'num-cycle', chars:['(', ')'] },
-    { type:'num-cycle', chars:['<','>'] },
-    { type:'num-cycle', chars:['-','_'] },
+    { type:'num-cycle', chars:['^','&'] },     // 2행 1열: ^ &
+    { type:'num-cycle', chars:['(', ')'] },   // 2행 2열: ( )
+    { type:'num-cycle', chars:['<','>'] },    // 2행 3열: < >
+    { type:'num-cycle', chars:['-','_'] },    // 2행 4열: - _
+    { type:'num-cycle', chars:['+','='] },    // 2행 5열: + =
     { type:'num-single', char:'4' },
     { type:'num-single', char:'5' },
     { type:'num-single', char:'6' },
@@ -180,12 +180,12 @@ const numericRows = [
     { type:'num-single', char:'3' },
   ],
   [
-    { type:'num-cursor-right' },
+    { type:'num-dismiss' },                    // 4행 1-2열: 닫기 (2칸)
+    { type:'num-skip' },                       // 4행 2열: Dismiss 2번째 칸 더미
     { type:'num-single', char:',' },
     { type:'num-single', char:'.' },
     { type:'num-single', char:'!' },
     { type:'num-single', char:'?' },
-    { type:'num-cycle', chars:['+','='] },
     { type:'num-single', char:'0' },
     { type:'num-bs' },
   ],
@@ -496,8 +496,13 @@ function renderNumeric() {
 
     for (let c = 0; c < 8; c++) {
       const key = numericRows[r][c];
+      if (key.type === 'num-skip') continue;
+
       const keyId = `n${r}c${c}`;
-      const style = { left:KEY_COLS[c]+'%', top:rowTop+'%', width:KEY_W+'%', height:rowH+'%' };
+      const keyW = (key.type === 'num-dismiss')
+        ? (KEY_COLS[c + 1] + KEY_W - KEY_COLS[c]) + '%'  // 2칸 너비: 다음 칸 끝까지
+        : KEY_W + '%';
+      const style = { left:KEY_COLS[c]+'%', top:rowTop+'%', width:keyW, height:rowH+'%' };
       const action = (key.type === 'num-single') ? handlers['num-single'](key)
                    : (key.type === 'num-cycle')  ? handlers['num-cycle'](key, keyId)
                    : handlers[key.type];
