@@ -453,6 +453,7 @@ function renderLao() {
   }, () => {
     numericMode = true;
     numLastKey = null; numTapIdx = 0;
+    state.activeRoot = null; state.activeCharIdx = 0; state.lastSignKey = null; state.signTapIdx = 0; state.hConjMode = false;
     document.getElementById('kbd-image').src = 'images/bg_numeric_keyboard.png';
     render();
   }));
