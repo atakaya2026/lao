@@ -69,7 +69,7 @@
 
   /* 변환키: 후보 여러 개를 wrap해서 표시 */
   .kbd-next {
-    color: #78350f; font-weight: 900; flex-direction: row;
+    font-weight: 900; flex-direction: row;
     flex-wrap: wrap; justify-content: center; align-items: center;
     gap: 2px; line-height: 1.1;
   }
@@ -223,7 +223,7 @@ function getRoot(char) {
 function getNextKeyLabels() {
   if (state.hConjChar) {
     const root = getRoot(state.hConjChar);
-    if (!root) return ['⇄'];
+    if (!root) return ['ປ່ຽນ'];
     const arr = consonantRows[root];
     return [arr[(arr.indexOf(state.hConjChar) + 1) % arr.length]];
   }
@@ -235,7 +235,7 @@ function getNextKeyLabels() {
     }
     return arr.slice(1); // 비기본 후보 전체
   }
-  return ['⇄'];
+  return ['ປ່ຽນ'];
 }
 
 function handleConsonant(root) {
