@@ -77,6 +77,11 @@
   .kbd-next .next-item { font-size: clamp(11px, 4.5vw, 22px); line-height: 1; font-weight: 900; }
 
   .kbd-func, .kbd-space, .kbd-enter, .kbd-123 { font-size: 0; }
+  .kbd-eng-char {
+    font-size: clamp(12px, 4.5vw, 22px);
+    color: #1a1208;
+    font-weight: bold;
+  }
 
   .kbd-space-label {
     position: absolute;
@@ -201,6 +206,9 @@ let state = {
 };
 
 let numericMode = false;
+let englishMode = false;
+let lastNonNumericMode = false; // false=라오, true=영문
+let engCapsLock = false;
 let numLastKey = null;
 let numTapIdx = 0;
 
@@ -368,7 +376,13 @@ function handleNumCursorRight() {
 function handleNumDismiss() {
   numericMode = false;
   numLastKey = null; numTapIdx = 0;
-  document.getElementById('kbd-image').src = 'images/keyboard.png';
+  if (lastNonNumericMode) {
+    englishMode = true; engCapsLock = false;
+    document.getElementById('kbd-image').src = 'images/keyboard_eng.png';
+  } else {
+    englishMode = false;
+    document.getElementById('kbd-image').src = 'images/keyboard.png';
+  }
   render();
 }
 
@@ -396,6 +410,7 @@ function makeBtn(cls, style, onClick) {
 
 function render() {
   if (numericMode) { renderNumeric(); return; }
+  if (englishMode) { renderEnglish(); return; }
   renderLao();
 }
 
@@ -446,11 +461,22 @@ function renderLao() {
     }
   }
 
-  // ── 바텀바: 123(2칸) | 스페이스(4칸) | 엔터(2칸) ────────────────────────
-  // 123
-  kbd.appendChild(makeBtn('kbd-123', {
-    left:'1.05%', top:BOT_Y+'%', width:'23.25%', height:BOT_H+'%'
+  // ── 바텀바: n/A | 123 | 스페이스 | 엔터 ─────────────────────────────────
+  // n/A (0~15.25%)
+  kbd.appendChild(makeBtn('kbd-func', {
+    left:'0%', top:BOT_Y+'%', width:'15.25%', height:BOT_H+'%'
   }, () => {
+    englishMode = true; lastNonNumericMode = false; engCapsLock = false;
+    state.activeRoot = null; state.activeCharIdx = 0; state.lastSignKey = null; state.signTapIdx = 0; state.hConjMode = false;
+    document.getElementById('kbd-image').src = 'images/keyboard_eng.png';
+    render();
+  }));
+
+  // 123 (15.25%~30.15%)
+  kbd.appendChild(makeBtn('kbd-123', {
+    left:'15.25%', top:BOT_Y+'%', width:'14.90%', height:BOT_H+'%'
+  }, () => {
+    lastNonNumericMode = false;
     numericMode = true;
     numLastKey = null; numTapIdx = 0;
     state.activeRoot = null; state.activeCharIdx = 0; state.lastSignKey = null; state.signTapIdx = 0; state.hConjMode = false;
@@ -458,9 +484,9 @@ function renderLao() {
     render();
   }));
 
-  // 스페이스
+  // 스페이스 (30.15%~77.60%)
   kbd.appendChild(makeBtn('kbd-space', {
-    left:'25.50%', top:BOT_Y+'%', width:'48.90%', height:BOT_H+'%'
+    left:'30.15%', top:BOT_Y+'%', width:'47.45%', height:BOT_H+'%'
   }, () => {
     appendText(' ');
     state.activeRoot=null; state.activeCharIdx=0;
@@ -468,12 +494,92 @@ function renderLao() {
   }));
   const lbl = document.createElement('div');
   lbl.className = 'kbd-space-label';
-  lbl.style.cssText = `left:25.50%;top:${BOT_Y}%;width:48.90%;height:${BOT_H}%;`;
+  lbl.style.cssText = `left:30.15%;top:${BOT_Y}%;width:47.45%;height:${BOT_H}%;`;
   kbd.appendChild(lbl);
 
-  // 엔터
+  // 엔터 (77.60%~100%)
   kbd.appendChild(makeBtn('kbd-enter', {
-    left:'75.50%', top:BOT_Y+'%', width:'23.35%', height:BOT_H+'%'
+    left:'77.60%', top:BOT_Y+'%', width:'22.40%', height:BOT_H+'%'
+  }, () => { appendText('\n'); render(); }));
+}
+
+function renderEnglish() {
+  const kbd = document.getElementById('kbd');
+  kbd.innerHTML = '';
+
+  const kw = 9.90, kh = 22.5;
+  const r1Y = 1.5, r2Y = 26.5, r3Y = 51.5;
+
+  // Row 1: Q W E R T Y U I O P
+  const row1 = ['Q','W','E','R','T','Y','U','I','O','P'];
+  row1.forEach((ch, i) => {
+    const label = engCapsLock ? ch : ch.toLowerCase();
+    const b = makeBtn('kbd-eng-char', {
+      left: (0.44 + i * kw) + '%', top: r1Y + '%', width: kw + '%', height: kh + '%'
+    }, () => { appendText(label); });
+    b.textContent = label;
+    kbd.appendChild(b);
+  });
+
+  // Row 2: A S D F G H J K L
+  const row2 = ['A','S','D','F','G','H','J','K','L'];
+  row2.forEach((ch, i) => {
+    const label = engCapsLock ? ch : ch.toLowerCase();
+    const b = makeBtn('kbd-eng-char', {
+      left: (5.45 + i * kw) + '%', top: r2Y + '%', width: kw + '%', height: kh + '%'
+    }, () => { appendText(label); });
+    b.textContent = label;
+    kbd.appendChild(b);
+  });
+
+  // Row 3: Shift + Z X C V B N M + BS
+  kbd.appendChild(makeBtn('kbd-func', {
+    left: '0%', top: r3Y + '%', width: '15.23%', height: kh + '%'
+  }, () => { engCapsLock = !engCapsLock; render(); }));
+
+  const row3 = ['Z','X','C','V','B','N','M'];
+  row3.forEach((ch, i) => {
+    const label = engCapsLock ? ch : ch.toLowerCase();
+    const b = makeBtn('kbd-eng-char', {
+      left: (15.23 + i * kw) + '%', top: r3Y + '%', width: kw + '%', height: kh + '%'
+    }, () => { appendText(label); });
+    b.textContent = label;
+    kbd.appendChild(b);
+  });
+
+  kbd.appendChild(makeBtn('kbd-func', {
+    left: '84.53%', top: r3Y + '%', width: '15.47%', height: kh + '%'
+  }, handleBS));
+
+  // 바텀바: n/A(라오복귀) | 123 | 스페이스 | 엔터
+  kbd.appendChild(makeBtn('kbd-func', {
+    left: '0%', top: BOT_Y + '%', width: '15.25%', height: BOT_H + '%'
+  }, () => {
+    englishMode = false; engCapsLock = false;
+    document.getElementById('kbd-image').src = 'images/keyboard.png';
+    render();
+  }));
+
+  kbd.appendChild(makeBtn('kbd-123', {
+    left: '15.25%', top: BOT_Y + '%', width: '14.90%', height: BOT_H + '%'
+  }, () => {
+    lastNonNumericMode = true;
+    numericMode = true;
+    numLastKey = null; numTapIdx = 0;
+    document.getElementById('kbd-image').src = 'images/bg_numeric_keyboard.png';
+    render();
+  }));
+
+  kbd.appendChild(makeBtn('kbd-space', {
+    left: '30.15%', top: BOT_Y + '%', width: '47.45%', height: BOT_H + '%'
+  }, () => { appendText(' '); render(); }));
+  const lbl = document.createElement('div');
+  lbl.className = 'kbd-space-label';
+  lbl.style.cssText = `left:30.15%;top:${BOT_Y}%;width:47.45%;height:${BOT_H}%;`;
+  kbd.appendChild(lbl);
+
+  kbd.appendChild(makeBtn('kbd-enter', {
+    left: '77.60%', top: BOT_Y + '%', width: '22.40%', height: BOT_H + '%'
   }, () => { appendText('\n'); render(); }));
 }
 
@@ -514,7 +620,7 @@ function renderNumeric() {
 function resetAll() {
   setText('');
   state = { activeRoot:null, activeCharIdx:0, lastSignKey:null, signTapIdx:0, hConjMode:false, hConjChar:null };
-  numericMode = false;
+  numericMode = false; englishMode = false; lastNonNumericMode = false; engCapsLock = false;
   numLastKey = null; numTapIdx = 0;
   document.getElementById('kbd-image').src = 'images/keyboard.png';
   render();
