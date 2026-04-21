@@ -17,8 +17,30 @@
 		overflow-x: hidden; /* 가로 스크롤 방지 */
     }
 	span, p, h3 {
-    word-break: break-word; /* 단어 단위가 아니더라도 폭에 맞춰 줄바꿈 */
+    word-break: break-word;
     overflow-wrap: break-word;
+}
+.hero-copy {
+    color: #ff0000;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    font-size: clamp(2rem, 6vw, 4rem);
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.15);
+    white-space: nowrap;
+    text-align: center;
+}
+@media (max-width: 767px) {
+    .hero-copy {
+        color: white;
+        top: auto;
+        bottom: 12%;
+        transform: translateX(-50%);
+        font-size: clamp(1.2rem, 5.5vw, 2rem);
+        white-space: normal;
+        width: 90%;
+        text-shadow: 1px 1px 4px rgba(0,0,0,0.4);
+    }
 }
 </style>
 </head>
@@ -44,6 +66,9 @@
         <source media="(max-width: 767px)" srcset="images/hero_mobile.png">
         <img src="images/hero.png" alt="Hatabang Hero" class="w-full object-cover">
     </picture>
+    <p class="absolute font-bold leading-snug hero-copy">
+        ພວກເຮົາແມ່ນຮຸ່ນຮາທາບັງ
+    </p>
 </section>
 
 <section id="intro" class="py-20 bg-white text-center px-6">
